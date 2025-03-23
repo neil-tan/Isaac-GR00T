@@ -40,7 +40,7 @@ class Config:
     dataset_path: str
     """Path to the dataset directory."""
 
-    output_dir: str = "/tmp/gr00t"
+    output_dir: str = "output/gr00t_petf_finetune"
     """Directory to save model checkpoints."""
 
     data_config: str = "gr1_arms_only"
@@ -100,6 +100,9 @@ class Config:
 
     video_backend: str = "decord"
     """Video backend to use for training. [decord, torchvision_av]"""
+    
+    lora_rank: int = 32
+    """Rank of the LoRA approximation."""
 
 
 #####################################################################################
@@ -189,7 +192,7 @@ def main(config: Config):
                 print(f"Found target module: {name}")  # Debug print
                 
     lora_config = LoraConfig(
-        r=16,
+        r=config.lora_rank,
         lora_alpha=16,
         target_modules=target_modules,
         lora_dropout=0.1,
@@ -223,6 +226,11 @@ def main(config: Config):
 
     # 2.3 run experiment
     experiment.train()
+    
+    # 3 save the merged model
+    merged_model = model.merge_and_unload()
+    merged_model = model.save_pretrained(config.output_dir)
+    print(f"Saved merged model to {config.output_dir}")
 
 
 if __name__ == "__main__":
