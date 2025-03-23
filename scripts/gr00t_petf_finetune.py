@@ -200,22 +200,18 @@ def main(config: Config):
     model = get_peft_model(model, lora_config)
     model.print_trainable_parameters()
     
-    class GR00TLoraPostWrapper(torch.nn.Module):
-        def __init__(self, model):
-            super().__init__()
-            self.model = model
-            
-        def forward(self, inputs):
-            backbone_inputs, action_inputs = self.model.prepare_input(inputs)
-            backbone_outputs = self.model.backbone(backbone_inputs)
-            action_head_outputs = self.model.action_head(backbone_outputs, action_inputs)
-            self.model.validate_data(action_head_outputs, backbone_outputs, is_training=True)
+    def wrap_forward(model):
+        def _forward(inputs):
+            backbone_inputs, action_inputs = model.prepare_input(inputs)
+            backbone_outputs = model.backbone(backbone_inputs)
+            action_head_outputs = model.action_head(backbone_outputs, action_inputs)
+            model.validate_data(action_head_outputs, backbone_outputs, is_training=True)
             return action_head_outputs
         
-        def save_pretrained(self, save_directory):
-            return self.model.save_pretrained(save_directory)
-    
-    model = GR00TLoraPostWrapper(model)
+        model.forward = _forward
+        return model
+
+    model = wrap_forward(model)
 
     # 2.2 run experiment
     experiment = TrainRunner(
